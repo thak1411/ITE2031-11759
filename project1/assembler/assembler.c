@@ -14,7 +14,7 @@ int readAndParse(FILE *, char *, char *, char *, char *, char *);
 
 int main(int argc, char *argv[]) 
 {
-	int i, address, print_machine_code, tmp;
+	int i, address, tmp;
 	unsigned int machine_code;
 	char *inFileString, *outFileString;
 	FILE *inFilePtr, *outFilePtr;
@@ -68,7 +68,6 @@ int main(int argc, char *argv[])
 	// generate machine code & checking errors
 	for (address = 0; readAndParse(inFilePtr, label, opcode, arg0, arg1, arg2); ++address) {
 		machine_code = 0;
-		print_machine_code = 1;
 		if (!strcmp(opcode, "add")) {
 			machine_code |= 0 << 22;
 			machine_code |= check_register3(arg0, arg1, arg2);
@@ -92,13 +91,14 @@ int main(int argc, char *argv[])
 		} else if (!strcmp(opcode, "noop")) {
 			machine_code |= 7 << 22;
 		} else if (!strcmp(opcode, ".fill")) {
-			print_machine_code = 0;
-			if (rn_is_number(arg0, -2147483648, 2147483647)) {
-				fprintf(outFilePtr, "%d\n", atoi(arg0));
-			} else {
+			machine_code = 0;
+			tmp = rn_is_number(arg0, -2147483648, 2147483647);
+			if (tmp == 1) {
+				machine_code = rn_atoi(arg0);
+			} else if (tmp == 0) {
 				for (i = 0; i < label_count; ++i) {
 					if (!strcmp(labels[i], arg0)) {
-						fprintf(outFilePtr, "%d\n", label_addresses[i]);
+						machine_code = label_addresses[i];
 						break;
 					}
 				}
@@ -106,6 +106,9 @@ int main(int argc, char *argv[])
 					printf("error: undefined label %s\n", arg0);
 					exit(1);
 				}
+			} else {
+				printf("error: invalid .fill argument %s\n", arg0);
+				exit(1);
 			}
 		} else {
 			printf("error: unrecognized opcode %s\n", opcode);
@@ -142,9 +145,7 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		if (print_machine_code) {
-			fprintf(outFilePtr, "%d\n", machine_code);
-		}
+		fprintf(outFilePtr, "%d\n", machine_code);
 	}
 
 	if (inFilePtr) {
